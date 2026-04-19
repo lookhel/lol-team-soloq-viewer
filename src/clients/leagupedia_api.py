@@ -1,5 +1,4 @@
 import os
-import time
 from dotenv import load_dotenv
 from mwrogue.esports_client import EsportsClient
 from mwrogue.auth_credentials import AuthCredentials
@@ -33,7 +32,16 @@ class LeaguepediaAPI():
 
         return None
 
-    def fetch_competition_teams(self, competition: str) -> list[str]:
+    def fetch_current_competitions(self) -> list[str]:
+        response = self._site.cargo_client.query(
+            tables='CurrentLeagues=CL',
+            fields='CL.Event',
+            group_by='CL.Event'
+        )
+
+        return [event['Event'] for event in response]
+
+    def fetch_competition_team_names(self, competition: str) -> list[str]:
         response = self._site.cargo_client.query(
             tables="CurrentLeagues=CL, TournamentRosters=TR",
             fields="TR.Team",
@@ -44,7 +52,19 @@ class LeaguepediaAPI():
 
         return [team['Team'] for team in response]
 
-    def fetch_teams(self, team_names: list[str]) -> list[Team]:
+    def fetch_tournament_roster(self, team_name: str, competition_name: str):
+        response = self._site.cargo_client.query(
+            tables="TournamentRosters=TR, CurrentLeagues=CL",
+            fields="TR.RosterLinks",
+            where=f"TR.Team='{team_name}' AND CL.Event='{competition_name}'",
+            join_on="CL.OverviewPage=TR.OverviewPage",
+        )
+
+        members_list = [r['RosterLinks'] for r in response]
+
+        return members_list[0].split(';;')
+
+    def fetch_teams_info(self, team_names: list[str]) -> list[Team]:
 
         if not team_names:
             return []
@@ -72,6 +92,10 @@ class LeaguepediaAPI():
             for r in response
         ]
 
+    def fetch_competition_teams(self, competition: str) -> list[Team]:
+        team_names = self.fetch_competition_team_names(competition)
+        return self.fetch_teams_info(team_names)
+
     def fetch_team_roster(self, team: Team) -> None:
         if team is None:
             raise ValueError("Team cannot be None")
@@ -85,7 +109,7 @@ class LeaguepediaAPI():
         try:
             response = self._site.cargo_client.query(
                 tables="PlayerRedirects=PR, Players=P",
-                fields="P.ID, P.Role, P.IsSubstitute",
+                fields="P.ID, P.OverviewPage, P.Role, P.IsSubstitute",
                 where=f"(P.Team = '{team_name}' OR P.Team2 = '{team_name}') AND P.Role IN ('Top', 'Jungle', 'Mid', 'Bot', 'Support') AND P.RoleLast HOLDS P.Role",
                 join_on="PR.OverviewPage=P.OverviewPage",
                 group_by="P.OverviewPage"
@@ -97,6 +121,7 @@ class LeaguepediaAPI():
 
         players = [dict(player) for player in response]
         players = [Player(name=p['ID'],
+                       overview_page=p['OverviewPage'],
                        role=p.get('Role'),
                        is_substitute=LeaguepediaAPI._parse_bool(p.get('IsSubstitute')))
                 for p in players]
@@ -119,7 +144,7 @@ class LeaguepediaAPI():
         try:
             response = self._site.cargo_client.query(
                 tables="PlayerRedirects=PR, Players=P",
-                fields="P.ID, P.Team, P.Team2, P.Role, P.IsSubstitute",
+                fields="P.ID, P.OverviewPage, P.Team, P.Team2, P.Role, P.IsSubstitute",
                 where=f"""
                     (P.Team IN ({names_str}) OR P.Team2 IN ({names_str}))
                     AND P.Role IN ('Top', 'Jungle', 'Mid', 'Bot', 'Support')
@@ -140,6 +165,7 @@ class LeaguepediaAPI():
         for p in response:
             player = Player(
                 name=p['ID'],
+                overview_page=p['OverviewPage'],
                 role=p.get('Role'),
                 is_substitute=self._parse_bool(p.get('IsSubstitute'))
             )
@@ -170,13 +196,12 @@ if __name__ == "__main__":
     leaguepedia = LeaguepediaAPI()
     teams = leaguepedia.fetch_competition_teams('Rift Legends 2026 Spring')
     print(teams)
-    teams=leaguepedia.fetch_teams(teams)
-    print(teams)
     leaguepedia.fetch_teams_rosters(teams)
     for team in teams:
         print(team.players)
-    #print(leaguepedia.fetch_player_lolpros_name("mikusik"))
 
-    #print(leaguepedia.fetch_team('Forsaken'))
+    print(leaguepedia.fetch_player_lolpros_name("mikusik"))
+    print(leaguepedia.fetch_competition_team_names('Rift Legends 2026 Spring'))
 
-    #print(leaguepedia.fetch_competition_teams('LEC/2026 Season/Spring Season'))
+    print(leaguepedia.fetch_current_competitions())
+    print(leaguepedia.fetch_tournament_roster('Forsaken (Polish Team)', 'Rift Legends 2026 Spring'))

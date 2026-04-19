@@ -1,8 +1,10 @@
 import time
+from typing import Literal
 from curl_cffi import requests
 from bs4 import BeautifulSoup
 
-def scrape_deeplol_name(player_name: str) -> str | None:
+
+def scrape_deeplol_name(player_name: str) -> tuple[str, Literal["pro", "streamer"]] | None:
     url = f"https://lol.fandom.com/wiki/{player_name}"
 
     time.sleep(1)
@@ -12,16 +14,28 @@ def scrape_deeplol_name(player_name: str) -> str | None:
         response.raise_for_status()
 
         soup = BeautifulSoup(response.text, 'html.parser')
-        link = soup.find('a', href=lambda x: x and 'deeplol.gg' in x)
+        deeplol_link = soup.find('a', href=lambda x: x and 'deeplol.gg' in x)
 
-        if link:
-            deeplol_url = link['href']
-            deeplol_name = deeplol_url.rstrip('/').split('/')[-1]
-            return deeplol_name
+        if deeplol_link:
+            deeplol_url = deeplol_link['href']
+            url_splitted = deeplol_url.rstrip('/').split('/')
+            deeplol_name = url_splitted[-1]
+            deeplol_status = url_splitted[-2]
+            if deeplol_status not in ["pro", "streamer"]:
+                return deeplol_name, "pro"
+            return deeplol_name, deeplol_status
 
         else:
-            print(f"Unable to find deeplol name on leagupedia for {player_name}")
-            return None
+            lolpros_link = soup.find('a', href=lambda x: x and 'lolpros.gg' in x)
+            if lolpros_link:
+                lolpros_url = lolpros_link['href']
+                url_splitted = lolpros_url.rstrip('/').split('/')
+                lolpros_name = url_splitted[-1]
+                return lolpros_name, "pro"
+
+            else:
+                print(f"Failed to find deeplol name on leagupedia for {player_name}")
+                return None
 
     except Exception as e:
         print(f"Failed to get deeplol name on Leaguepedia for {player_name}: {e}")

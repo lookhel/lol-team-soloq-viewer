@@ -1,40 +1,43 @@
-import json
-import time
+from db.repositories.competition_repo import save_competition
+from db.repositories.summoner_repo import save_player_summoners
+from src.clients.leagupedia_api import LeaguepediaAPI
+from src.clients.deeplol import DeepLolAPI
+from src.db.database import init_db, get_connection
+from src.db.repositories.team_repo import save_team
+from src.services.player_resolver import find_deeplol_name
+from src.models import Team
 
-from src.clients import DeepLolAPI, LeaguepediaAPI
-from src.models import Player, Team, Role
-
-# Test teams
-#team_names = ['Forsaken (Polish Team)', 'Bomba Team', 'Barcząca Esports']
-
+example_teams = ['Esprit Shōnen', 'Galions', 'Ici Japon Corp. Esport', 'Joblife', 'Karmine Corp Blue', 'Skillcamp', 'Solary', 'TLN Pirates', 'Vitality.Bee', 'ZYB Esport']
 competition_name = 'Rift Legends 2026 Spring'
 
+
 def main():
-    leaguepedia=LeaguepediaAPI()
 
-    with open('./data/rl.json', 'w', encoding='utf-8') as f:
-        teams = leaguepedia.fetch_competition_teams(competition_name)
-        competition_teams = {'competition': competition_name, 'teams': teams, 'last_updated': time.time()}
-        json.dump(competition_teams, f, indent=4, ensure_ascii=False)
+    init_db()
+    leaguepedia = LeaguepediaAPI()
+    competitions = leaguepedia.fetch_current_competitions()
 
-    if teams:
-        teams = leaguepedia.fetch_teams(teams)
-        leaguepedia.fetch_teams_rosters(teams)
-
-    for t in teams:
-        print(t)
-        print(t.players)
+    teams = leaguepedia.fetch_competition_teams(competition_name)
+    leaguepedia.fetch_teams_rosters(teams)
+    print("teamsv1", teams)
 
     with DeepLolAPI() as deeplol:
-        for team in teams:
-            print(team)
-            for p in team.players:
-                deeplol.fetch_summoners_for_player(p)
-                print(p)
-                for s in p.summoners:
-                    deeplol.fetch_summoner_champion_stats(s)
-                    print(s)
-                    print(s.champion_stats)
+        with get_connection() as conn:
+            for team in teams:
+                save_team(conn, team)
+                for player in team.players:
+                    print(player)
+                    find_deeplol_name(player)
+                    try:
+                        deeplol.fetch_summoners_for_player(player)
+                    except Exception as e:
+                        print(e)
+                        continue
+                    save_player_summoners(conn, player)
+                save_team(conn, team)
+            save_competition(conn, competition_name, teams)
+
+            conn.commit()
 
 if __name__ == "__main__":
     main()

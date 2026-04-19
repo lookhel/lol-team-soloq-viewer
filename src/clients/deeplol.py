@@ -1,5 +1,5 @@
 import requests
-from typing import Self
+from typing import Self, Literal
 from datetime import datetime, timedelta
 
 from src.models import Summoner, Player
@@ -51,6 +51,39 @@ class DeepLolAPI:
 
         return puu_id
 
+    def validate_player_name(self, name: str, status: Literal["pro", "streamer"] = "pro") -> tuple[str, Literal["pro", "streamer"]] | None:
+        url = f"{DeepLolAPI.BASE_URL}/summoner/strm_pro_info"
+
+        if status == "pro":
+            other_status = "streamer"
+
+        elif status == "streamer":
+            other_status = "pro"
+
+        else:
+            raise ValueError(f"Invalid status: {status}; must be either pro or streamer")
+
+        params= {
+            'name': name,
+            'status': status
+        }
+
+        response = self.session.get(url, params=params)
+
+        data = response.json()
+        response_status = data.get("status")
+        if response_status == "":
+            params['status'] = other_status
+            response = requests.get(url, params=params)
+            data = response.json()
+            response_status = data.get("status")
+            if response_status == "":
+                return None
+
+        actual_status = response_status.lower()
+
+        return name, actual_status
+
     def fetch_summoner_champion_stats(self, summoner: Summoner, season: int = None) -> None:
         if season is None:
             if DeepLolAPI._current_season is None:
@@ -84,15 +117,18 @@ class DeepLolAPI:
     def fetch_summoners_for_player(self, player: Player, max_last_game_days: int = 90):
         url = f"{DeepLolAPI.BASE_URL}/summoner/strm_pro_info"
 
-        if player.deeplol_name:
-            deeplol_name = player.deeplol_name
+        if not player.deeplol_name:
+            raise ValueError(f"Player {player.name} has not deeplol name set")
+
+        if player.deeplol_status:
+            deeplol_status = player.deeplol_status
 
         else:
-            deeplol_name = player.name
+            deeplol_status = 'pro'
 
         params= {
-            'name': deeplol_name,
-            'status': 'pro'
+            'name': player.deeplol_name,
+            'status': deeplol_status
         }
 
         response = self.session.get(url, params=params)
@@ -100,11 +136,7 @@ class DeepLolAPI:
         data = response.json()
 
         if data.get("status") is None:
-            params['status'] = 'streamer'
-            response = requests.get(url, params=params)
-            data = response.json()
-            if data.get("status") is None:
-                raise ValueError(f"{player} profile on deeplol not available")
+            raise ValueError(f"{player} profile on deeplol not available")
 
         accounts = data.get('account_list')
 
@@ -123,5 +155,4 @@ class DeepLolAPI:
             for acc in accounts if acc["last_game_date"] > threshold # Assigning only active accounts
         ]
 
-        for s in summoners:
-            player.assign_summoner(s)
+        player.summoners = summoners
