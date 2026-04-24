@@ -5,17 +5,16 @@ from src.models import Team, Player
 
 
 def _upsert_team(conn: Connection, team: Team, now) -> int:
-
     conn.execute(
         """
         INSERT INTO teams (name, overview_page, short, org_location, region, last_updated)
         VALUES (?, ?, ?, ?, ?, ?)
-        ON CONFLICT (overview_page) DO UPDATE SET 
-            overview_page = excluded.overview_page,
-            short         = excluded.short,
-            org_location  = excluded.org_location,
-            region        = excluded.region,
-            last_updated  = excluded.last_updated
+        ON CONFLICT (overview_page) DO UPDATE SET name          = excluded.name,
+                                                  overview_page = excluded.overview_page,
+                                                  short         = excluded.short,
+                                                  org_location  = excluded.org_location,
+                                                  region        = excluded.region,
+                                                  last_updated  = excluded.last_updated
         """,
         (team.name, team.overview_page, team.short, team.org_location, team.region, now)
     )
@@ -30,6 +29,7 @@ def _upsert_team(conn: Connection, team: Team, now) -> int:
     ).fetchone()['id']
 
     return team_id
+
 
 def _sync_players(conn: Connection, team_id: int, players: list[Player], now: int) -> None:
     current_players = {player.overview_page for player in players if player.overview_page is not None}
@@ -61,17 +61,14 @@ def _sync_players(conn: Connection, team_id: int, players: list[Player], now: in
     for player in players:
         conn.execute(
             """
-            INSERT INTO players (overview_page, team_id, name, role, is_substitute, deeplol_name, deeplol_status,
+            INSERT INTO players (overview_page, team_id, name, role, is_substitute,
                                  last_updated)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT (overview_page) DO UPDATE SET 
-                team_id        = excluded.team_id,
-                name           = excluded.name,
-                role           = excluded.role,
-                is_substitute  = excluded.is_substitute,
-                deeplol_name   = excluded.deeplol_name,
-                deeplol_status = excluded.deeplol_status,
-                last_updated   = excluded.last_updated
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT (overview_page) DO UPDATE SET team_id       = excluded.team_id,
+                                                      name          = excluded.name,
+                                                      role          = excluded.role,
+                                                      is_substitute = excluded.is_substitute,
+                                                      last_updated  = excluded.last_updated
             """,
             (
                 player.overview_page,
@@ -85,8 +82,64 @@ def _sync_players(conn: Connection, team_id: int, players: list[Player], now: in
             )
         )
 
+
 def save_team(conn: Connection, team: Team) -> None:
     now = int(time.time())
 
     team_id = _upsert_team(conn, team, now)
     _sync_players(conn, team_id, team.players, now)
+
+def load_team(conn: Connection, team_overview) -> Team | None:
+
+    team_row = conn.execute(
+        """
+        SELECT id, name, overview_page, short, org_location, region FROM teams
+        WHERE overview_page = ?
+        LIMIT 1
+        """,
+        (team_overview,)
+    ).fetchone()
+
+    if team_row is None:
+        return None
+
+    team = Team(
+        name=team_row['name'],
+        overview_page=team_row['overview_page'],
+        short=team_row['short'],
+        org_location=team_row['org_location'],
+        region=team_row['region'],
+    )
+
+    player_rows = conn.execute(
+        """
+        SELECT name, overview_page, role, is_substitute, deeplol_name, deeplol_status
+        FROM players
+        WHERE team_id = ?
+        ORDER BY
+            CASE role
+                WHEN 'Top' THEN 1
+                WHEN 'Jungle' THEN 2
+                WHEN 'Mid' THEN 3
+                WHEN 'Bot' THEN 4
+                WHEN 'Support' THEN 5
+                ELSE 99
+            END,
+            name
+        """,
+        (team_row['id'],)
+    ).fetchall()
+
+    for row in player_rows:
+        player = Player(
+            name=row['name'],
+            overview_page=row['overview_page'],
+            role=row['role'],
+            is_substitute=bool(row['is_substitute']),
+        )
+        player.deeplol_name = row['deeplol_name']
+        player.deeplol_status = row['deeplol_status']
+
+        team.assign_player(player)
+
+    return team

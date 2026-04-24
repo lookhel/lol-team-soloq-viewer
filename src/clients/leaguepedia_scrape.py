@@ -5,7 +5,9 @@ from bs4 import BeautifulSoup
 
 
 def scrape_deeplol_name(player_name: str) -> tuple[str, Literal["pro", "streamer"]] | None:
-    url = f"https://lol.fandom.com/wiki/{player_name}"
+    formatted_name = player_name.replace(' ', '_')
+
+    url = f"https://lol.fandom.com/wiki/{formatted_name}"
 
     time.sleep(1)
 
@@ -44,11 +46,12 @@ def scrape_deeplol_name(player_name: str) -> tuple[str, Literal["pro", "streamer
 
 if __name__ == "__main__":
     # Test usage
-    test_players=[
+    test_players = [
         'Hans Sama',
         'frajgo',
         'mikusik',
         'non_existing'
+        'Bin (Chen Ze-Bin)'
     ]
 
     for player in test_players:

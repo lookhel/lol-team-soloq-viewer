@@ -35,7 +35,7 @@ class DeepLolAPI:
         except requests.exceptions.HTTPError as e:
             raise e
 
-    def fetch_summoner_puu_id(self, summoner:  Summoner) -> str:
+    def fetch_summoner_puu_id(self, summoner: Summoner) -> str:
         url = f'{DeepLolAPI.BASE_URL}/summoner/summoner'
         params = {
             'platform_id': summoner.platform_id,
@@ -51,7 +51,8 @@ class DeepLolAPI:
 
         return puu_id
 
-    def validate_player_name(self, name: str, status: Literal["pro", "streamer"] = "pro") -> tuple[str, Literal["pro", "streamer"]] | None:
+    def validate_player_name(self, name: str, status: Literal["pro", "streamer"] = "pro") -> tuple[str, Literal[
+        "pro", "streamer"]] | None:
         url = f"{DeepLolAPI.BASE_URL}/summoner/strm_pro_info"
 
         if status == "pro":
@@ -63,7 +64,7 @@ class DeepLolAPI:
         else:
             raise ValueError(f"Invalid status: {status}; must be either pro or streamer")
 
-        params= {
+        params = {
             'name': name,
             'status': status
         }
@@ -91,7 +92,7 @@ class DeepLolAPI:
             season = self._current_season
 
         if summoner.puu_id is None:
-            summoner.puu_id=self.fetch_summoner_puu_id(summoner)
+            summoner.puu_id = self.fetch_summoner_puu_id(summoner)
 
         url = f'{DeepLolAPI.BASE_URL}/summoner/champion-stat'
         params = {
@@ -126,7 +127,7 @@ class DeepLolAPI:
         else:
             deeplol_status = 'pro'
 
-        params= {
+        params = {
             'name': player.deeplol_name,
             'status': deeplol_status
         }
@@ -152,7 +153,7 @@ class DeepLolAPI:
                 platform_id=acc["platform_id"],
                 puu_id=acc["puu_id"]
             )
-            for acc in accounts if acc["last_game_date"] > threshold # Assigning only active accounts
+            for acc in accounts if acc["last_game_date"] > threshold  # Assigning only active accounts
         ]
 
         player.summoners = summoners

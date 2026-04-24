@@ -7,9 +7,10 @@ from src.models import Player, Team
 
 load_dotenv()
 
+
 class LeaguepediaAPI():
     def __init__(self):
-        username = os.getenv("LEAGUPEDIA_USERNAME")
+        username = os.getenv("LEAGUEPEDIA_USERNAME")
         bot_password = os.getenv("LEAGUEPEDIA_BOT_PASSWORD")
 
         if not username or not bot_password:
@@ -32,6 +33,10 @@ class LeaguepediaAPI():
 
         return None
 
+    @staticmethod
+    def _escape_sql(value: str) -> str:
+        return value.replace("'", "''")
+
     def fetch_current_competitions(self) -> list[str]:
         response = self._site.cargo_client.query(
             tables='CurrentLeagues=CL',
@@ -52,24 +57,14 @@ class LeaguepediaAPI():
 
         return [team['Team'] for team in response]
 
-    def fetch_tournament_roster(self, team_name: str, competition_name: str):
-        response = self._site.cargo_client.query(
-            tables="TournamentRosters=TR, CurrentLeagues=CL",
-            fields="TR.RosterLinks",
-            where=f"TR.Team='{team_name}' AND CL.Event='{competition_name}'",
-            join_on="CL.OverviewPage=TR.OverviewPage",
-        )
-
-        members_list = [r['RosterLinks'] for r in response]
-
-        return members_list[0].split(';;')
-
     def fetch_teams_info(self, team_names: list[str]) -> list[Team]:
-
         if not team_names:
             return []
 
-        names_str = ", ".join([f"'{name}'" for name in team_names])
+        escaped_names = [f"'{LeaguepediaAPI._escape_sql(name)}'" for name in team_names]
+        names_str = ", ".join(escaped_names)
+
+        print('here', names_str)
 
         response = self._site.cargo_client.query(
             tables="Teams=T",
@@ -121,25 +116,25 @@ class LeaguepediaAPI():
 
         players = [dict(player) for player in response]
         players = [Player(name=p['ID'],
-                       overview_page=p['OverviewPage'],
-                       role=p.get('Role'),
-                       is_substitute=LeaguepediaAPI._parse_bool(p.get('IsSubstitute')))
-                for p in players]
+                          overview_page=p['OverviewPage'],
+                          role=p.get('Role'),
+                          is_substitute=LeaguepediaAPI._parse_bool(p.get('IsSubstitute')))
+                   for p in players]
 
         for p in players:
             team.assign_player(p)
 
     def fetch_teams_rosters(self, teams: list[Team]) -> None:
-
         if not teams:
             return
 
         team_names = []
         for team in teams:
             name = team.overview_page or team.name
-            team_names.append(name)
+            team_names.append(name.strip())
 
-        names_str = ", ".join([f"'{name}'" for name in team_names])
+        escaped_names = [f"'{LeaguepediaAPI._escape_sql(name)}'" for name in team_names]
+        names_str = ", ".join(escaped_names)
 
         try:
             response = self._site.cargo_client.query(
@@ -157,6 +152,9 @@ class LeaguepediaAPI():
             print(f"Failed to fetch rosters: {e}")
             return
 
+        if not response:
+            return
+
         team_map = {}
         for team in teams:
             team_map[team.overview_page or team.name] = team
@@ -167,13 +165,12 @@ class LeaguepediaAPI():
                 name=p['ID'],
                 overview_page=p['OverviewPage'],
                 role=p.get('Role'),
-                is_substitute=self._parse_bool(p.get('IsSubstitute'))
+                is_substitute=LeaguepediaAPI._parse_bool(p.get('IsSubstitute'))
             )
 
             team = team_map.get(p['Team']) or team_map.get(p['Team2'])
             if team:
                 team.assign_player(player)
-
 
     def fetch_player_lolpros_name(self, player) -> str | None:
         response = self._site.cargo_client.query(
@@ -192,16 +189,28 @@ class LeaguepediaAPI():
         else:
             return None
 
+    def fetch_latest_roster(self, team_name: str) -> list[str]:
+        response = self._site.cargo_client.query(
+            tables="TournamentRosters=TR, CurrentLeagues=CL",
+            fields="TR.RosterLinks",
+            where=f"TR.Team='{team_name}'",
+            join_on="CL.OverviewPage=TR.OverviewPage",
+        )
+
+        if not response:
+            return []
+
+        members_list = [r['RosterLinks'] for r in response]
+
+        return members_list[0].split(';;')
+
+
 if __name__ == "__main__":
     leaguepedia = LeaguepediaAPI()
-    teams = leaguepedia.fetch_competition_teams('Rift Legends 2026 Spring')
-    print(teams)
-    leaguepedia.fetch_teams_rosters(teams)
-    for team in teams:
-        print(team.players)
 
-    print(leaguepedia.fetch_player_lolpros_name("mikusik"))
-    print(leaguepedia.fetch_competition_team_names('Rift Legends 2026 Spring'))
+    rift_names = leaguepedia.fetch_competition_team_names('Rift Legends 2026 Spring')
+    print(rift_names)
+    print(leaguepedia.fetch_teams_info(rift_names))
 
-    print(leaguepedia.fetch_current_competitions())
-    print(leaguepedia.fetch_tournament_roster('Forsaken (Polish Team)', 'Rift Legends 2026 Spring'))
+    print(leaguepedia.fetch_latest_roster('Bomba Team'))
+    print(leaguepedia.fetch_tournament_roster('StormMedia Fajnie Mieć Skład', 'Rift Legends 2026 Spring'))
