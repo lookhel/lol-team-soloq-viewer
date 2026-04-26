@@ -55,14 +55,13 @@ def _sync_players(conn: Connection, team_id: int, players: list[Player], now: in
                 last_updated  = ?
             WHERE overview_page = ?
             """,
-            (now, player)
+            (now, player.overview_page)
         )
 
     for player in players:
         conn.execute(
             """
-            INSERT INTO players (overview_page, team_id, name, role, is_substitute,
-                                 last_updated)
+            INSERT INTO players (overview_page, team_id, name, role, is_substitute, last_updated)
             VALUES (?, ?, ?, ?, ?, ?)
             ON CONFLICT (overview_page) DO UPDATE SET team_id       = excluded.team_id,
                                                       name          = excluded.name,
@@ -76,14 +75,16 @@ def _sync_players(conn: Connection, team_id: int, players: list[Player], now: in
                 player.name,
                 player.role.value if player.role else None,
                 1 if player.is_substitute else 0 if player.is_substitute is not None else None,
-                player.deeplol_name,
-                player.deeplol_status,
                 now
             )
         )
 
 
 def save_team(conn: Connection, team: Team) -> None:
+
+    if team is None:
+        raise ValueError(f"team is None")
+
     now = int(time.time())
 
     team_id = _upsert_team(conn, team, now)

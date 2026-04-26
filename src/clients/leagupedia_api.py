@@ -64,8 +64,6 @@ class LeaguepediaAPI():
         escaped_names = [f"'{LeaguepediaAPI._escape_sql(name)}'" for name in team_names]
         names_str = ", ".join(escaped_names)
 
-        print('here', names_str)
-
         response = self._site.cargo_client.query(
             tables="Teams=T",
             fields="T.Name, T.OverviewPage, T.Short, T.Location, T.Region",
@@ -213,4 +211,4 @@ if __name__ == "__main__":
     print(leaguepedia.fetch_teams_info(rift_names))
 
     print(leaguepedia.fetch_latest_roster('Bomba Team'))
-    print(leaguepedia.fetch_tournament_roster('StormMedia Fajnie Mieć Skład', 'Rift Legends 2026 Spring'))
+    print(leaguepedia.fetch_latest_roster('StormMedia Fajnie Mieć Skład'))

@@ -306,6 +306,7 @@ dependencies = [
     { name = "dotenv" },
     { name = "fastapi" },
     { name = "mwrogue" },
+    { name = "python-dotenv" },
     { name = "requests" },
     { name = "uvicorn" },
 ]
@@ -317,6 +318,7 @@ requires-dist = [
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "fastapi", specifier = ">=0.136.0" },
     { name = "mwrogue", specifier = ">=0.1.5" },
+    { name = "python-dotenv", specifier = ">=1.2.2" },
     { name = "requests", specifier = ">=2.32.5" },
     { name = "uvicorn", specifier = ">=0.45.0" },
 ]

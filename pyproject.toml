@@ -10,6 +10,7 @@ dependencies = [
     "dotenv>=0.9.9",
     "fastapi>=0.136.0",
     "mwrogue>=0.1.5",
+    "python-dotenv>=1.2.2",
     "requests>=2.32.5",
     "uvicorn>=0.45.0",
 ]

@@ -124,4 +124,7 @@ def load_summoner_stats(conn: Connection, summoner: Summoner) -> None:
         (summoner.puu_id,)
     ).fetchone()
 
+    if row is None:
+        return
+
     summoner.champion_stats = json.loads(row['champion_stats'])

@@ -12,26 +12,30 @@ from src.db.repositories.team_repo import save_team, load_team
 from src.db.database import init_db, get_connection
 from src.services.player_service import find_deeplol_name, check_if_sub
 
-example_teams = ['Esprit Shōnen', 'Galions', 'Ici Japon Corp. Esport', 'Joblife', 'Karmine Corp Blue', 'Skillcamp',
-                 'Solary', 'TLN Pirates', 'Vitality.Bee', 'ZYB Esport']
-competition_names = ['Rift Legends 2026 Spring', 'LPL 2026 Split 2', 'LCS 2026 Spring', 'LFL 2026 Spring']
+competition_names = ['Rift Legends 2026 Spring', 'LPL 2026 Split 2', 'LCS 2026 Spring', 'LFL 2026 Spring',
+                     'TCL 2026 Spring', 'LCK 2026 Rounds 1-2', 'LEC 2026 Spring']
 
 
 def main():
     init_db()
-    with get_connection() as conn:
-        print(load_competition_names(conn))
-        team = load_team(conn, 'Barcząca Esports')
-        for player in team.players:
-            load_player_summoners(conn, player)
-            with DeepLolAPI() as deeplol:
-                for summoner in player.summoners:
-                    print(summoner)
-                    print(summoner.champion_stats)
-                    load_summoner_stats(conn, summoner)
-                    print(summoner.champion_stats)
-        print(load_competition_teams(conn, 'Rift Legends 2026 Spring'))
-    exit()
+    # with get_connection() as conn:
+    #     #competition_names = load_competition_names(conn)
+    #     for competition in competition_names:
+    #         teams = load_competition_teams(conn, competition)
+    #         for team in teams:
+    #             team = load_team(conn, team.overview_page)
+    #             if team is not None and team.players is not None:
+    #                 for player in team.players:
+    #                     check_if_sub(player)
+    #                     load_player_summoners(conn, player)
+    #                     with DeepLolAPI() as deeplol:
+    #                         for summoner in player.summoners:
+    #                             print(summoner)
+    #                             print("before", summoner.champion_stats)
+    #                             deeplol.fetch_summoner_champion_stats(summoner)
+    #                             save_summoner_stats(conn, summoner)
+    #                             print("after", summoner.champion_stats)
+    #                 save_team(conn, team)
 
     leaguepedia = LeaguepediaAPI()
     all_teams = []
@@ -50,16 +54,21 @@ def main():
 
         with DeepLolAPI() as deeplol:
             for team in all_teams:
+                print(f"--------------------{team}")
                 for player in team.players:
                     print(player)
-                    find_deeplol_name(player)
-                    check_if_sub(player)
+                    if player.deeplol_name is None:
+                         find_deeplol_name(player)
                     try:
+                        check_if_sub(player)
                         deeplol.fetch_summoners_for_player(player)
                     except Exception as e:
                         print(e)
                         continue
                     save_player_summoners(conn, player)
+                    for summ in player.summoners:
+                        deeplol.fetch_summoner_champion_stats(summ)
+                    save_summoner_stats(conn, summ)
                 save_team(conn, team)
 
 

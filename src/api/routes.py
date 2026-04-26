@@ -1,4 +1,6 @@
 from fastapi import FastAPI, HTTPException
+
+from services.champion_service import fetch_champions_data, fetch_current_ddragon_version
 from src.db.database import get_connection
 from src.db.repositories.competition_repo import (
     load_competition_names,
@@ -10,9 +12,9 @@ from src.db.repositories.summoner_repo import (
     load_summoner_stats
 )
 from src.db.repositories.player_repo import load_player
+from src.services.stats_service import merge_summoner_stats
 
 app = FastAPI(title="LoL Team SoloQ Analyzer API")
-
 
 @app.get('/competition-list')
 def get_competitions():
@@ -76,10 +78,13 @@ def get_player(name: str):
 
         load_player_summoners(conn, player)
 
+        summoner_stats_list = []
+
         for s in player.summoners:
             load_summoner_stats(conn, s)
+            summoner_stats_list.append(s.champion_stats)
 
-        # merged = merge_summoner_stats()
+        merged = merge_summoner_stats(summoner_stats_list)
 
         return {
             'name': player.name,
@@ -94,6 +99,10 @@ def get_player(name: str):
                     'platform_id': summoner.platform_id
                 }
                 for summoner in player.summoners
-            ]
-            # 'merged':
+            ],
+            'merged_soloq_stats': merged
         }
+
+@app.get('/champions')
+def get_champions_data():
+    return fetch_champions_data(fetch_current_ddragon_version())
