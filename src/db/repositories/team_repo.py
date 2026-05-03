@@ -61,13 +61,17 @@ def _sync_players(conn: Connection, team_id: int, players: list[Player], now: in
     for player in players:
         conn.execute(
             """
-            INSERT INTO players (overview_page, team_id, name, role, is_substitute, last_updated)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO players (overview_page, team_id, name, role, is_substitute, deeplol_name,
+                                 deeplol_status, last_updated)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (overview_page) DO UPDATE SET team_id       = excluded.team_id,
                                                       name          = excluded.name,
                                                       role          = excluded.role,
                                                       is_substitute = excluded.is_substitute,
+                                                      deeplol_name  = COALESCE(deeplol_name, excluded.deeplol_name),
+                                                      deeplol_status= COALESCE(deeplol_status, excluded.deeplol_status),
                                                       last_updated  = excluded.last_updated
+
             """,
             (
                 player.overview_page,
@@ -75,13 +79,14 @@ def _sync_players(conn: Connection, team_id: int, players: list[Player], now: in
                 player.name,
                 player.role.value if player.role else None,
                 1 if player.is_substitute else 0 if player.is_substitute is not None else None,
+                player.deeplol_name,
+                player.deeplol_status,
                 now
             )
         )
 
 
 def save_team(conn: Connection, team: Team) -> None:
-
     if team is None:
         raise ValueError(f"team is None")
 
@@ -90,11 +95,12 @@ def save_team(conn: Connection, team: Team) -> None:
     team_id = _upsert_team(conn, team, now)
     _sync_players(conn, team_id, team.players, now)
 
-def load_team(conn: Connection, team_overview) -> Team | None:
 
+def load_team(conn: Connection, team_overview) -> Team | None:
     team_row = conn.execute(
         """
-        SELECT id, name, overview_page, short, org_location, region FROM teams
+        SELECT id, name, overview_page, short, org_location, region
+        FROM teams
         WHERE overview_page = ?
         LIMIT 1
         """,
@@ -117,16 +123,15 @@ def load_team(conn: Connection, team_overview) -> Team | None:
         SELECT name, overview_page, role, is_substitute, deeplol_name, deeplol_status
         FROM players
         WHERE team_id = ?
-        ORDER BY
-            CASE role
-                WHEN 'Top' THEN 1
-                WHEN 'Jungle' THEN 2
-                WHEN 'Mid' THEN 3
-                WHEN 'Bot' THEN 4
-                WHEN 'Support' THEN 5
-                ELSE 99
-            END,
-            name
+        ORDER BY CASE role
+                     WHEN 'Top' THEN 1
+                     WHEN 'Jungle' THEN 2
+                     WHEN 'Mid' THEN 3
+                     WHEN 'Bot' THEN 4
+                     WHEN 'Support' THEN 5
+                     ELSE 99
+                     END,
+                 name
         """,
         (team_row['id'],)
     ).fetchall()

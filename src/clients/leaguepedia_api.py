@@ -1,9 +1,12 @@
+import logging
 import os
 from dotenv import load_dotenv
 from mwrogue.esports_client import EsportsClient
 from mwrogue.auth_credentials import AuthCredentials
 
 from src.models import Player, Team
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -14,7 +17,7 @@ class LeaguepediaAPI():
         bot_password = os.getenv("LEAGUEPEDIA_BOT_PASSWORD")
 
         if not username or not bot_password:
-            print("Leaguepedia credentials are not set")
+            raise RuntimeError("Leaguepedia username or bot password is missing")
 
         credentials = AuthCredentials(username=username, password=bot_password)
         self._site = EsportsClient('lol', credentials=credentials)
@@ -44,6 +47,9 @@ class LeaguepediaAPI():
             group_by='CL.Event'
         )
 
+        if not response:
+            logger.warning("No current competitions found")
+
         return [event['Event'] for event in response]
 
     def fetch_competition_team_names(self, competition: str) -> list[str]:
@@ -54,6 +60,9 @@ class LeaguepediaAPI():
             join_on="CL.OverviewPage=TR.OverviewPage",
             group_by="TR.Team"
         )
+
+        if not response:
+            logger.warning("No teams found for %s", competition)
 
         return [team['Team'] for team in response]
 
@@ -71,7 +80,7 @@ class LeaguepediaAPI():
         )
 
         if not response:
-            print(f"Failed to fetch teams: {team_names}")
+            logger.warning("No team data found for %s", team_names)
             return []
 
         return [
@@ -91,7 +100,7 @@ class LeaguepediaAPI():
 
     def fetch_team_roster(self, team: Team) -> None:
         if team is None:
-            raise ValueError("Team cannot be None")
+            raise ValueError("Team to fetch roster cannot be None")
 
         if team.overview_page:
             team_name = team.overview_page
@@ -99,17 +108,16 @@ class LeaguepediaAPI():
         else:
             team_name = team.name
 
-        try:
-            response = self._site.cargo_client.query(
-                tables="PlayerRedirects=PR, Players=P",
-                fields="P.ID, P.OverviewPage, P.Role, P.IsSubstitute",
-                where=f"(P.Team = '{team_name}' OR P.Team2 = '{team_name}') AND P.Role IN ('Top', 'Jungle', 'Mid', 'Bot', 'Support') AND P.RoleLast HOLDS P.Role",
-                join_on="PR.OverviewPage=P.OverviewPage",
-                group_by="P.OverviewPage"
-            )
+        response = self._site.cargo_client.query(
+            tables="PlayerRedirects=PR, Players=P",
+            fields="P.ID, P.OverviewPage, P.Role, P.IsSubstitute",
+            where=f"(P.Team = '{team_name}' OR P.Team2 = '{team_name}') AND P.Role IN ('Top', 'Jungle', 'Mid', 'Bot', 'Support') AND P.RoleLast HOLDS P.Role",
+            join_on="PR.OverviewPage=P.OverviewPage",
+            group_by="P.OverviewPage"
+        )
 
-        except Exception as e:
-            print(f"Failed to fetch team roster for {team_name}: {e}")
+        if not response:
+            logger.warning("No roster data found for %s", team)
             return
 
         players = [dict(player) for player in response]
@@ -134,23 +142,20 @@ class LeaguepediaAPI():
         escaped_names = [f"'{LeaguepediaAPI._escape_sql(name)}'" for name in team_names]
         names_str = ", ".join(escaped_names)
 
-        try:
-            response = self._site.cargo_client.query(
-                tables="PlayerRedirects=PR, Players=P",
-                fields="P.ID, P.OverviewPage, P.Team, P.Team2, P.Role, P.IsSubstitute",
-                where=f"""
-                    (P.Team IN ({names_str}) OR P.Team2 IN ({names_str}))
-                    AND P.Role IN ('Top', 'Jungle', 'Mid', 'Bot', 'Support')
-                    AND P.RoleLast HOLDS P.Role
-                """,
-                join_on="PR.OverviewPage=P.OverviewPage",
-                group_by="P.OverviewPage"
-            )
-        except Exception as e:
-            print(f"Failed to fetch rosters: {e}")
-            return
+        response = self._site.cargo_client.query(
+            tables="PlayerRedirects=PR, Players=P",
+            fields="P.ID, P.OverviewPage, P.Team, P.Team2, P.Role, P.IsSubstitute",
+            where=f"""
+                (P.Team IN ({names_str}) OR P.Team2 IN ({names_str}))
+                AND P.Role IN ('Top', 'Jungle', 'Mid', 'Bot', 'Support')
+                AND P.RoleLast HOLDS P.Role
+            """,
+            join_on="PR.OverviewPage=P.OverviewPage",
+            group_by="P.OverviewPage"
+        )
 
         if not response:
+            logger.warning("No roster data found for %s", teams)
             return
 
         team_map = {}
@@ -170,7 +175,7 @@ class LeaguepediaAPI():
             if team:
                 team.assign_player(player)
 
-    def fetch_player_lolpros_name(self, player) -> str | None:
+    def fetch_player_lolpros_name(self, player: str) -> str | None:
         response = self._site.cargo_client.query(
             tables="Players=P, PlayerRedirects=PR",
             fields="P.Lolpros",
@@ -185,17 +190,20 @@ class LeaguepediaAPI():
             return lolpros_name
 
         else:
+            logger.info("No lolpros data found for %s", player)
             return None
 
     def fetch_latest_roster(self, team_name: str) -> list[str]:
+
         response = self._site.cargo_client.query(
             tables="TournamentRosters=TR, CurrentLeagues=CL",
             fields="TR.RosterLinks",
-            where=f"TR.Team='{team_name}'",
+            where=f"TR.Team='{LeaguepediaAPI._escape_sql(team_name)}'",
             join_on="CL.OverviewPage=TR.OverviewPage",
         )
 
         if not response:
+            logger.warning("No roster data found for %s", team_name)
             return []
 
         members_list = [r['RosterLinks'] for r in response]

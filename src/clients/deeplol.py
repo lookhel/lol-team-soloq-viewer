@@ -1,6 +1,9 @@
 import requests
-from typing import Self, Literal
 from datetime import datetime, timedelta
+from typing import Self, Literal
+from tenacity import RetryError, retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+
+from tenacity import stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from src.models import Summoner, Player
 
@@ -12,9 +15,6 @@ class DeepLolAPI:
     def __init__(self) -> None:
         self.session = requests.Session()
 
-    def close(self) -> None:
-        self.session.close()
-
     def __enter__(self) -> Self:
         if DeepLolAPI._current_season is None:
             self.fetch_current_season()
@@ -23,17 +23,24 @@ class DeepLolAPI:
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         self.close()
 
+    def close(self) -> None:
+        self.session.close()
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=3),
+        retry=retry_if_exception_type(requests.exceptions.RequestException),
+    )
+    def _safe_get(self, url, **kwargs):
+        return self.session.get(url, timeout=10, **kwargs)
+
     def fetch_current_season(self) -> None:
         url = f'{DeepLolAPI.BASE_URL}/common/season-list'
 
-        try:
-            response = self.session.get(url)
-            response.raise_for_status()
-            data = response.json()
-            DeepLolAPI._current_season = int(data['season_list'][0])
-
-        except requests.exceptions.HTTPError as e:
-            raise e
+        response = self._safe_get(url)
+        response.raise_for_status()
+        data = response.json()
+        DeepLolAPI._current_season = int(data['season_list'][0])
 
     def fetch_summoner_puu_id(self, summoner: Summoner) -> str:
         url = f'{DeepLolAPI.BASE_URL}/summoner/summoner'
@@ -43,7 +50,7 @@ class DeepLolAPI:
             'riot_id_tag_line': summoner.riot_id_tag_line
         }
 
-        response = self.session.get(url, params=params)
+        response = self._safe_get(url, params=params)
         response.raise_for_status()
 
         info = response.json()
@@ -69,7 +76,7 @@ class DeepLolAPI:
             'status': status
         }
 
-        response = self.session.get(url, params=params)
+        response = self._safe_get(url, params=params)
 
         data = response.json()
         response_status = data.get("status")
@@ -101,7 +108,7 @@ class DeepLolAPI:
             "platform_id": summoner.platform_id,
         }
 
-        response = self.session.get(url, params=params)
+        response = self._safe_get(url, params=params)
         response.raise_for_status()
 
         data = response.json()
@@ -132,7 +139,7 @@ class DeepLolAPI:
             'status': deeplol_status
         }
 
-        response = self.session.get(url, params=params)
+        response = self._safe_get(url, params=params)
 
         data = response.json()
 

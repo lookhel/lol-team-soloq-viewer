@@ -63,6 +63,9 @@ def load_competition_names(conn: Connection) -> list[str]:
     return competition_names
 
 def load_competition_teams(conn: Connection, competition_name) -> list[Team]:
+    """
+    Loads basic info about teams from specific competition (without players)
+    """
     team_rows = conn.execute(
         """
         SELECT t.name, t.overview_page, t.short, t.org_location, t.region

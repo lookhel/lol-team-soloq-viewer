@@ -1,7 +1,10 @@
+import logging
+
 from src.clients.leaguepedia_scrape import scrape_deeplol_name
 from src.clients.deeplol import DeepLolAPI
-from src.clients.leagupedia_api import LeaguepediaAPI
 from src.models import Player, Team
+
+logger = logging.getLogger(__name__)
 
 
 def assign_deeplol(validate_result, player: Player) -> None:
@@ -30,7 +33,7 @@ def find_deeplol_name(player: Player) -> None:
 
     names_to_check = {name, overview_page}
 
-    # Overview pages with names in format: nick (real name)
+    # Reformats for overview pages with names in format: nick (real name)
     if "(" in overview_page and ")" in overview_page:
         nickname, rest = overview_page.split("(", 1)
 
@@ -48,19 +51,8 @@ def find_deeplol_name(player: Player) -> None:
             assign_deeplol(validate_result, player)
             return
 
-    print(f"Failed to find deeplol profile for {overview_page}")
+    logger.info("Failed to find deeplol profile for %s", overview_page)
     return
-
-
-def check_if_sub(player: Player) -> None:
-    team = player.team.overview_page
-
-    leaguepedia = LeaguepediaAPI()
-    latest_roster = leaguepedia.fetch_latest_roster(team)
-
-    if latest_roster:
-        if {player.overview_page, player.name}.isdisjoint(latest_roster):
-            player.is_substitute = True
 
 
 # Test usage
@@ -73,12 +65,6 @@ if __name__ == "__main__":
 
     find_deeplol_name(mikusik)
     print(mikusik.deeplol_name, mikusik.deeplol_status)
-
-    check_if_sub(hyper720)
-    check_if_sub(lequ)
-    check_if_sub(minemaciek)
-
-    print(hyper720.is_substitute, lequ.is_substitute, minemaciek.is_substitute)
 
     find_deeplol_name(naak_nako)
     print(naak_nako.deeplol_name, naak_nako.deeplol_status)
