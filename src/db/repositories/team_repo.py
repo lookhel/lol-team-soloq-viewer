@@ -8,13 +8,13 @@ def _upsert_team(conn: Connection, team: Team, now) -> int:
     conn.execute(
         """
         INSERT INTO teams (name, overview_page, short, org_location, region, last_updated)
-        VALUES (?, ?, ?, ?, ?, ?)
-        ON CONFLICT (overview_page) DO UPDATE SET name          = excluded.name,
-                                                  overview_page = excluded.overview_page,
-                                                  short         = excluded.short,
-                                                  org_location  = excluded.org_location,
-                                                  region        = excluded.region,
-                                                  last_updated  = excluded.last_updated
+        VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (overview_page) DO
+        UPDATE SET name = excluded.name,
+            overview_page = excluded.overview_page,
+            short = excluded.short,
+            org_location = excluded.org_location,
+            region = excluded.region,
+            last_updated = excluded.last_updated
         """,
         (team.name, team.overview_page, team.short, team.org_location, team.region, now)
     )
@@ -55,7 +55,7 @@ def _sync_players(conn: Connection, team_id: int, players: list[Player], now: in
                 last_updated  = ?
             WHERE overview_page = ?
             """,
-            (now, player.overview_page)
+            (now, player)
         )
 
     for player in players:
@@ -63,14 +63,14 @@ def _sync_players(conn: Connection, team_id: int, players: list[Player], now: in
             """
             INSERT INTO players (overview_page, team_id, name, role, is_substitute, deeplol_name,
                                  deeplol_status, last_updated)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT (overview_page) DO UPDATE SET team_id       = excluded.team_id,
-                                                      name          = excluded.name,
-                                                      role          = excluded.role,
-                                                      is_substitute = excluded.is_substitute,
-                                                      deeplol_name  = COALESCE(deeplol_name, excluded.deeplol_name),
-                                                      deeplol_status= COALESCE(deeplol_status, excluded.deeplol_status),
-                                                      last_updated  = excluded.last_updated
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (overview_page) DO
+            UPDATE SET team_id = excluded.team_id,
+                name = excluded.name,
+                role = excluded.role,
+                is_substitute = excluded.is_substitute,
+                deeplol_name = COALESCE (deeplol_name, excluded.deeplol_name),
+                deeplol_status= COALESCE (deeplol_status, excluded.deeplol_status),
+                last_updated = excluded.last_updated
 
             """,
             (
@@ -86,7 +86,7 @@ def _sync_players(conn: Connection, team_id: int, players: list[Player], now: in
         )
 
 
-def save_team(conn: Connection, team: Team) -> None:
+def save_team_with_roster(conn: Connection, team: Team) -> None:
     if team is None:
         raise ValueError(f"team is None")
 
@@ -101,8 +101,7 @@ def load_team(conn: Connection, team_overview) -> Team | None:
         """
         SELECT id, name, overview_page, short, org_location, region
         FROM teams
-        WHERE overview_page = ?
-        LIMIT 1
+        WHERE overview_page = ? LIMIT 1
         """,
         (team_overview,)
     ).fetchone()

@@ -1,5 +1,5 @@
-from models import Team
-from clients.leaguepedia_api import LeaguepediaAPI
+from src.models import Team
+from src.clients.leaguepedia_api import LeaguepediaAPI
 
 
 def check_team_subs(team: Team) -> None:

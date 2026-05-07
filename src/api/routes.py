@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 
-from services.champion_service import fetch_champions_data, fetch_current_ddragon_version
+from src.services.champion_service import fetch_champions_data, fetch_current_ddragon_version
 from src.db.database import get_connection
 from src.db.repositories.competition_repo import (
     load_competition_names,

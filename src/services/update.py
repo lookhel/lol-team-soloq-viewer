@@ -1,5 +1,7 @@
 import logging
 import time
+import tomllib
+from pathlib import Path
 
 from src.clients.leaguepedia_api import LeaguepediaAPI
 from src.clients.deeplol import DeepLolAPI
@@ -11,7 +13,7 @@ from src.db.repositories.summoner_repo import (
 )
 from src.db.repositories.player_repo import update_deeplol_profile, load_deeplol_profile
 from src.db.repositories.competition_repo import save_competition, load_competition_teams, load_competition_names
-from src.db.repositories.team_repo import save_team, load_team
+from src.db.repositories.team_repo import save_team_with_roster, load_team
 from src.db.database import init_db, get_connection
 from src.models import Team
 from src.services.player_service import find_deeplol_name
@@ -21,24 +23,25 @@ from src.services.team_service import check_team_subs
 logger = logging.getLogger(__name__)
 logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', encoding='utf-8', level=logging.DEBUG)
 
-competition_names = ['Rift Legends 2026 Spring', 'LPL 2026 Split 2']
+BASE_DIR = Path(__file__).resolve().parents[2]
+CONFIG_FILE = BASE_DIR / "config.toml"
+competition_names = ['Rift Legends 2026 Spring', 'LPL 2026 Split 2', 'LES 2026 Spring', 'Road Of Legends 2026 Spring']
 
-def update_competition_teams(competition_name: str, leaguepedia_api: LeaguepediaAPI) -> None:
+def refresh_competition_data(competition_name: str) -> None:
+
+    logger.info("Starting refreshing competition data for %s", competition_name)
+    leaguepedia = LeaguepediaAPI()
+    teams = []
+
     try:
-        teams = leaguepedia_api.fetch_competition_teams(competition_name)
+        teams = leaguepedia.fetch_competition_teams(competition_name)
     except Exception as e:
         logger.exception("Failed to fetch teams from %s: %s", competition_name, e)
-        return
-
-    with get_connection() as conn:
-        save_competition(conn, competition_name, teams)
-
-def update_competition_rosters(competition_name: str, leaguepedia_api: LeaguepediaAPI) -> None:
-    with get_connection() as conn:
-        teams = load_competition_teams(conn, competition_name)
+        with get_connection() as conn:
+            teams = load_competition_teams(conn, competition_name)
 
     try:
-        leaguepedia_api.fetch_teams_rosters(teams)
+        leaguepedia.fetch_teams_rosters(teams)
     except Exception as e:
         logger.exception("Failed to fetch %s rosters: %s", competition_name, e)
         return
@@ -49,23 +52,19 @@ def update_competition_rosters(competition_name: str, leaguepedia_api: Leagueped
                 check_team_subs(team)
             except Exception as e:
                 logger.exception("Failed to check %s substitute players: %s", team, e)
-            save_team(conn, team)
+            save_team_with_roster(conn, team)
+        save_competition(conn, competition_name, teams)
 
-    logger.info("Updated %s competition rosters", competition_name)
-
-def refresh_competition_data(competition_name: str) -> None:
-
-    logger.info("Starting refreshing competition data for %s", competition_name)
-    leaguepedia = LeaguepediaAPI()
-
-    update_competition_teams(competition_name, leaguepedia)
-    update_competition_rosters(competition_name, leaguepedia)
 
     logger.info("Finished refreshing competition data for %s", competition_name)
 
 
 def main():
     init_db()
+
+    with open(CONFIG_FILE, 'rb') as f:
+        config = tomllib.load(f)
+    competition_names = config['competitions']
     # with get_connection() as conn:
     #     #competition_names = load_competition_names(conn)
     #     for competition in competition_names:
@@ -84,7 +83,7 @@ def main():
     #                             save_summoner_stats(conn, summoner)
     #                             print("after", summoner.champion_stats)
     #                 save_team(conn, team)
-
+    print(config)
     for competition in competition_names:
         refresh_competition_data(competition)
 
