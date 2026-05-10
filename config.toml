@@ -1,0 +1,24 @@
+[competitions]
+names = [
+    "Rift Legends 2026 Spring",
+    "LFL 2026 Spring Playoffs",
+    "LEC 2026 Spring",
+    "LPL 2026 Split 2",
+]
+
+[stored_data_max_age]
+deeplol_names_days = 7
+summoners_for_players_hours = 24
+summoners_stats_hours = 3
+
+[requests_per_job_limit]
+deeplol_names = 20
+summoners_for_players = 100
+summoners_stats = 100
+
+[jobs_intervals]
+champions_hours = 24
+competitions_hours = 12
+deeplol_names_minutes = 20
+summoners_for_players_minutes = 10
+summoners_stats_minutes = 10
