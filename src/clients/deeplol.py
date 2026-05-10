@@ -1,9 +1,7 @@
 import requests
 from datetime import datetime, timedelta
 from typing import Self, Literal
-from tenacity import RetryError, retry, retry_if_exception_type, stop_after_attempt, wait_exponential
-
-from tenacity import stop_after_attempt, wait_exponential, retry_if_exception_type
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from src.models import Summoner, Player
 
@@ -144,12 +142,12 @@ class DeepLolAPI:
         data = response.json()
 
         if data.get("status") is None:
-            raise ValueError(f"{player} profile on deeplol not available")
+            raise ValueError(f"{player.overview_page} profile on deeplol not available")
 
         accounts = data.get('account_list')
 
         if accounts is None:
-            raise ValueError(f"No summoners found for {player} on deeplol")
+            raise ValueError(f"No summoners found for {player.overview_page} on deeplol")
 
         threshold = int((datetime.now() - timedelta(days=max_last_game_days)).timestamp())
 

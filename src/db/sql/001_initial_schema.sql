@@ -35,7 +35,8 @@ CREATE TABLE IF NOT EXISTS players
     is_substitute  INTEGER,
     deeplol_name   TEXT,
     deeplol_status TEXT,
-    last_updated   INTEGER NOT NULL,
+    deeplol_checked_at INTEGER,
+    summoners_checked_at INTEGER,
     UNIQUE (team_id, name),
     FOREIGN KEY (team_id) REFERENCES teams (id)
 );
@@ -47,11 +48,25 @@ CREATE TABLE IF NOT EXISTS summoners
     riot_id_name     TEXT    NOT NULL,
     riot_id_tag_line TEXT    NOT NULL,
     platform_id      TEXT    NOT NULL,
-    last_updated     INTEGER NOT NULL,
     UNIQUE (player_id, riot_id_name, riot_id_tag_line, platform_id),
     FOREIGN KEY (player_id) REFERENCES players (id)
 );
 
+CREATE TABLE IF NOT EXISTS summoner_stats
+(
+    puu_id         TEXT PRIMARY KEY,
+    champion_stats TEXT NOT NULL,
+    last_updated   INT  NOT NULL,
+    FOREIGN KEY (puu_id) REFERENCES summoners(puu_id)
+);
+
+CREATE TABLE IF NOT EXISTS champions
+(
+    id  INT PRIMARY KEY,
+    name TEXT NOT NULL,
+    image TEXT NOT NULL,
+    version TEXT NOT NULL
+)
 
 
 

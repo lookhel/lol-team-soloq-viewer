@@ -15,7 +15,7 @@ def assign_deeplol(validate_result, player: Player) -> None:
     player.deeplol_status = found_status
 
 
-def find_deeplol_name(player: Player) -> None:
+def find_deeplol_name(player: Player) -> bool:
     overview_page = player.overview_page
     name = player.name
     deeplol = DeepLolAPI()
@@ -29,7 +29,7 @@ def find_deeplol_name(player: Player) -> None:
         validate_result = deeplol.validate_player_name(deeplol_name, player_status)
         if validate_result:
             assign_deeplol(validate_result, player)
-            return
+            return True
 
     names_to_check = {name, overview_page}
 
@@ -49,10 +49,10 @@ def find_deeplol_name(player: Player) -> None:
         validate_result = deeplol.validate_player_name(name)
         if validate_result:
             assign_deeplol(validate_result, player)
-            return
+            return True
 
-    logger.info("Failed to find deeplol profile for %s", overview_page)
-    return
+    logger.warning("Deeplol profile not found for %s", overview_page)
+    return False
 
 
 # Test usage

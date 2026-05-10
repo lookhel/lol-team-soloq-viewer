@@ -56,14 +56,13 @@ def save_player_summoners(conn: Connection, player: Player) -> None:
 
         conn.execute(
             """
-            INSERT INTO summoners (puu_id, player_id, riot_id_name, riot_id_tag_line, platform_id, last_updated)
-            VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (puu_id) DO
+            INSERT INTO summoners (puu_id, player_id, riot_id_name, riot_id_tag_line, platform_id)
+            VALUES (?, ?, ?, ?, ?) ON CONFLICT (puu_id) DO
             UPDATE SET
                 player_id = excluded.player_id,
                 riot_id_name = excluded.riot_id_name,
                 riot_id_tag_line = excluded.riot_id_tag_line,
-                platform_id = excluded.platform_id,
-                last_updated = excluded.last_updated
+                platform_id = excluded.platform_id
             """,
             (
                 summoner.puu_id,
@@ -71,12 +70,14 @@ def save_player_summoners(conn: Connection, player: Player) -> None:
                 summoner.riot_id_name,
                 summoner.riot_id_tag_line,
                 summoner.platform_id,
-                now
             )
         )
 
 
 def save_summoner_stats(conn: Connection, summoner: Summoner) -> None:
+    if not summoner.puu_id:
+        raise ValueError(f"Summoner {summoner} has no puu_id")
+
     now = int(time.time())
 
     conn.execute(
@@ -86,7 +87,7 @@ def save_summoner_stats(conn: Connection, summoner: Summoner) -> None:
         UPDATE SET champion_stats = excluded.champion_stats,
             last_updated = excluded.last_updated
         """,
-        (summoner.puu_id, json.dumps(summoner.champion_stats), now)
+        (summoner.puu_id, json.dumps(summoner.champion_stats, ensure_ascii=False), now)
     )
 
 
@@ -128,3 +129,28 @@ def load_summoner_stats(conn: Connection, summoner: Summoner) -> None:
         return
 
     summoner.champion_stats = json.loads(row['champion_stats'])
+
+def get_summoners_needing_stats_update(conn: Connection, limit: int, max_age_hours: int) -> list[Summoner]:
+    threshold = int(time.time()) - max_age_hours * 3600
+
+    rows = conn.execute(
+        """
+        SELECT s.puu_id, s.riot_id_name, s.riot_id_tag_line, s.platform_id
+        FROM summoners s
+        LEFT JOIN summoner_stats ss ON ss.puu_id = s.puu_id
+        WHERE ss.last_updated IS NULL OR ss.last_updated < ?
+        ORDER BY ss.last_updated NULLS FIRST
+        LIMIT ?
+        """,
+        (threshold, limit)
+    ).fetchall()
+
+    return [
+        Summoner(
+            riot_id_name=row["riot_id_name"],
+            riot_id_tag_line=row["riot_id_tag_line"],
+            platform_id=row["platform_id"],
+            puu_id=row["puu_id"]
+        )
+        for row in rows
+    ]

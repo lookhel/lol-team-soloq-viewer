@@ -31,7 +31,7 @@ def _upsert_team(conn: Connection, team: Team, now) -> int:
     return team_id
 
 
-def _sync_players(conn: Connection, team_id: int, players: list[Player], now: int) -> None:
+def _sync_players(conn: Connection, team_id: int, players: list[Player]) -> None:
     current_players = {player.overview_page for player in players if player.overview_page is not None}
 
     existing_rows = conn.execute(
@@ -51,27 +51,23 @@ def _sync_players(conn: Connection, team_id: int, players: list[Player], now: in
             """
             UPDATE players
             SET team_id       = NULL,
-                is_substitute = NULL,
-                last_updated  = ?
+                is_substitute = NULL
             WHERE overview_page = ?
             """,
-            (now, player)
+            (player,)
         )
 
     for player in players:
         conn.execute(
             """
-            INSERT INTO players (overview_page, team_id, name, role, is_substitute, deeplol_name,
-                                 deeplol_status, last_updated)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (overview_page) DO
+            INSERT INTO players (overview_page, team_id, name, role, is_substitute, deeplol_name, deeplol_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (overview_page) DO
             UPDATE SET team_id = excluded.team_id,
                 name = excluded.name,
                 role = excluded.role,
                 is_substitute = excluded.is_substitute,
                 deeplol_name = COALESCE (deeplol_name, excluded.deeplol_name),
-                deeplol_status= COALESCE (deeplol_status, excluded.deeplol_status),
-                last_updated = excluded.last_updated
-
+                deeplol_status= COALESCE (deeplol_status, excluded.deeplol_status)
             """,
             (
                 player.overview_page,
@@ -80,8 +76,7 @@ def _sync_players(conn: Connection, team_id: int, players: list[Player], now: in
                 player.role.value if player.role else None,
                 1 if player.is_substitute else 0 if player.is_substitute is not None else None,
                 player.deeplol_name,
-                player.deeplol_status,
-                now
+                player.deeplol_status
             )
         )
 
@@ -93,7 +88,7 @@ def save_team_with_roster(conn: Connection, team: Team) -> None:
     now = int(time.time())
 
     team_id = _upsert_team(conn, team, now)
-    _sync_players(conn, team_id, team.players, now)
+    _sync_players(conn, team_id, team.players)
 
 
 def load_team(conn: Connection, team_overview) -> Team | None:

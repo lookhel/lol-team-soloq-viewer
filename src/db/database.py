@@ -1,3 +1,4 @@
+import logging
 import sqlite3
 from pathlib import Path
 from sqlite3 import Connection
@@ -9,6 +10,7 @@ SCHEMA_PATH = BASE_DIR / 'src' / 'db' / 'sql'
 
 Path(BASE_DIR / 'data').mkdir(parents=True, exist_ok=True)
 
+logger = logging.getLogger(__name__)
 
 def init_db() -> None:
     try:
@@ -21,13 +23,14 @@ def init_db() -> None:
                 cursor.executescript(sql_instruction)
 
             conn.commit()
+            logger.info("Database initialized successfully")
 
     except sqlite3.OperationalError as e:
-        print("Failed to open database:", e)
+        logger.critical("Failed to open database: %s", e)
 
 
 def get_connection() -> Connection:
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute('PRAGMA foreign_keys = ON')
     return conn

@@ -1,21 +1,30 @@
 import requests
+from tenacity import RetryError, retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 BASE_URL = "https://ddragon.leagueoflegends.com"
 
-def fetch_current_ddragon_version() -> str:
+@retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=3),
+        retry=retry_if_exception_type(requests.exceptions.RequestException),
+    )
+def safe_get(url, **kwargs):
+    return requests.get(url, timeout=10, **kwargs)
+
+def fetch_latest_ddragon_version() -> str:
     url = f"{BASE_URL}/api/versions.json"
 
-    response = requests.get(url)
+    response = safe_get(url)
     response.raise_for_status()
     versions_list = response.json()
-    current_version = versions_list[0]
+    latest_version = versions_list[0]
 
-    return current_version
+    return latest_version
 
 def fetch_champions_data(version: str) -> list[dict]:
     url = f"{BASE_URL}/cdn/{version}/data/en_US/champion.json"
 
-    response = requests.get(url)
+    response = safe_get(url)
     response.raise_for_status()
 
     data = response.json().get("data")

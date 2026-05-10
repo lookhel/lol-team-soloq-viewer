@@ -1,6 +1,5 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import APIRouter, HTTPException
 
-from src.services.champion_service import fetch_champions_data, fetch_current_ddragon_version
 from src.db.database import get_connection
 from src.db.repositories.competition_repo import (
     load_competition_names,
@@ -12,18 +11,19 @@ from src.db.repositories.summoner_repo import (
     load_summoner_stats
 )
 from src.db.repositories.player_repo import load_player
+from src.db.repositories.champion_repo import load_champions
 from src.services.stats_service import merge_summoner_stats
 
-app = FastAPI(title="LoL Team SoloQ Analyzer API")
+router= APIRouter()
 
-@app.get('/competition-list')
+@router.get('/competition-list')
 def get_competitions():
     with get_connection() as conn:
         names = load_competition_names(conn)
     return {"competition_list": names}
 
 
-@app.get('/competitions/{name}')
+@router.get('/competitions/{name}')
 def get_competition_teams(name: str):
     with get_connection() as conn:
         teams = load_competition_teams(conn, name)
@@ -44,7 +44,7 @@ def get_competition_teams(name: str):
     }
 
 
-@app.get('/teams/{name}')
+@router.get('/teams/{name}')
 def get_team(name: str):
     with get_connection() as conn:
         team = load_team(conn, name)
@@ -68,7 +68,7 @@ def get_team(name: str):
         }
 
 
-@app.get('/players/{name}')
+@router.get('/players/{name}')
 def get_player(name: str):
     with get_connection() as conn:
         player = load_player(conn, name)
@@ -103,6 +103,7 @@ def get_player(name: str):
             'merged_soloq_stats': merged
         }
 
-@app.get('/champions')
+@router.get('/champions')
 def get_champions_data():
-    return fetch_champions_data(fetch_current_ddragon_version())
+    with get_connection() as conn:
+        return load_champions(conn)
