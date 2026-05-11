@@ -6,21 +6,16 @@ from src.db.repositories.competition_repo import (
     load_competition_teams
 )
 from src.db.repositories.team_repo import load_team
-from src.db.repositories.summoner_repo import (
-    load_player_summoners,
-    load_summoner_stats
-)
-from src.db.repositories.player_repo import load_player
 from src.db.repositories.champion_repo import load_champions
-from src.services.stats_service import merge_summoner_stats
+from src.services.player_service import get_player_with_stats
 
 router= APIRouter()
 
-@router.get('/competition-list')
+@router.get('/competitions')
 def get_competitions():
     with get_connection() as conn:
         names = load_competition_names(conn)
-    return {"competition_list": names}
+    return {"competitions": names}
 
 
 @router.get('/competitions/{name}')
@@ -48,45 +43,35 @@ def get_competition_teams(name: str):
 def get_team(name: str):
     with get_connection() as conn:
         team = load_team(conn, name)
-        if not team:
-            raise HTTPException(status_code=404, detail=f"Team {name} not found")
+    if not team:
+        raise HTTPException(status_code=404, detail=f"Team {name} not found")
 
-        return {
-            "overview_page": team.overview_page,
-            "name": team.name,
-            "short": team.short,
-            "org_location": team.org_location,
-            "region": team.region,
-            "players": [{
-                'name': player.name,
-                'overview_page': player.overview_page,
-                'role': player.role,
-                'is_substitute': bool(player.is_substitute),
-            }
-                for player in team.players
-            ]
+    return {
+        "overview_page": team.overview_page,
+        "name": team.name,
+        "short": team.short,
+        "org_location": team.org_location,
+        "region": team.region,
+        "players": [{
+            'name': player.name,
+            'overview_page': player.overview_page,
+            'role': player.role,
+            'is_substitute': bool(player.is_substitute),
         }
+            for player in team.players
+        ]
+    }
 
 
 @router.get('/players/{name}')
 def get_player(name: str):
     with get_connection() as conn:
-        player = load_player(conn, name)
+        player = get_player_with_stats(conn, name)
 
-        if not player:
-            raise HTTPException(status_code=404, detail=f"Player {name} not found")
+    if not player:
+        raise HTTPException(status_code=404, detail=f"Player {name} not found")
 
-        load_player_summoners(conn, player)
-
-        summoner_stats_list = []
-
-        for s in player.summoners:
-            load_summoner_stats(conn, s)
-            summoner_stats_list.append(s.champion_stats)
-
-        merged = merge_summoner_stats(summoner_stats_list)
-
-        return {
+    return {
             'name': player.name,
             'overview_page': player.overview_page,
             'role': player.role,
@@ -100,7 +85,7 @@ def get_player(name: str):
                 }
                 for summoner in player.summoners
             ],
-            'merged_soloq_stats': merged
+            'merged_soloq_stats': player.summoners_merged_stats
         }
 
 @router.get('/champions')

@@ -3,6 +3,7 @@ import tomllib
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
+from tomllib import TOMLDecodeError
 
 import uvicorn
 from apscheduler.executors.pool import ThreadPoolExecutor
@@ -33,13 +34,17 @@ try:
     with open(CONFIG_FILE, 'rb') as f:
         config = tomllib.load(f)
 except FileNotFoundError:
-    logger.error("Config file not found: %s", CONFIG_FILE)
+    logger.critical("Config file not found: %s", CONFIG_FILE)
+    raise
+except TOMLDecodeError:
+    logger.critical("Config file invalid: %s", CONFIG_FILE)
     raise
 
 scheduler = BackgroundScheduler(
     job_defaults={
         'max_instances': 1,
         'coalesce': True,
+        'misfire_grace_time': 300
     },
     executors={
         'default': ThreadPoolExecutor(max_workers=1),
@@ -54,7 +59,7 @@ async def lifespan(app: FastAPI):
     init_db()
 
     scheduler.add_job(refresh_champions, 'interval', hours=config['jobs_intervals']['champions_hours'],
-                      next_run_time=datetime.now())
+                      next_run_time=datetime.now() + timedelta(seconds=10))
     scheduler.add_job(refresh_competitions_data, 'interval', hours=config['jobs_intervals']['competitions_hours'],
                       kwargs={'competitions': config['competitions']['names']},
                       next_run_time=datetime.now() + timedelta(seconds=20))
@@ -81,4 +86,4 @@ app = FastAPI(title="LoL Team SoloQ Analyzer API", lifespan=lifespan)
 app.include_router(router)
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, log_level="info")

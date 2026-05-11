@@ -63,6 +63,7 @@ def refresh_competition_data(competition_name: str) -> None:
 def refresh_competitions_data(competitions: list[str]):
     for competition in competitions:
         refresh_competition_data(competition)
+        time.sleep(10)
 
 
 def refresh_deeplol_names(limit: int, max_age_days: int) -> None:

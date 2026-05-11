@@ -1,8 +1,13 @@
 import logging
+from sqlite3 import Connection
 
 from src.clients.leaguepedia_scrape import scrape_deeplol_name
 from src.clients.deeplol import DeepLolAPI
+from src.db.repositories.player_repo import load_player
+from src.db.repositories.summoner_repo import load_player_summoners, load_summoner_stats
+from stats_service import merge_summoner_stats
 from src.models import Player, Team
+
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +58,24 @@ def find_deeplol_name(player: Player) -> bool:
 
     logger.warning("Deeplol profile not found for %s", overview_page)
     return False
+
+def get_player_with_stats(conn: Connection, overview_page: str) -> Player | None:
+    player = load_player(conn, overview_page)
+
+    if not player:
+        return None
+
+    load_player_summoners(conn, player)
+
+    summoner_stats_list = []
+
+    for s in player.summoners:
+        load_summoner_stats(conn, s)
+        summoner_stats_list.append(s.champion_stats)
+
+    player.summoners_merged_stats = merge_summoner_stats(summoner_stats_list)
+
+    return player
 
 
 # Test usage

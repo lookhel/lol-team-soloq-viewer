@@ -49,6 +49,7 @@ class Player:
         self.deeplol_name: str | None = None
         self.deeplol_status: Literal["pro", "streamer"] | None = None
         self.summoners: List[Summoner] = []
+        self.summoners_merged_stats: list[dict] = []
 
     def __str__(self) -> str:
         return self.name
