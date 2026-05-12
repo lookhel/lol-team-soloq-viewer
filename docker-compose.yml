@@ -6,8 +6,6 @@ services:
       - src.main:app
       - --host
       - 0.0.0.0
-      - --root-path
-      - /api
       - --forwarded-allow-ips=127.0.0.1
     ports:
       - "127.0.0.1:8001:8000"
