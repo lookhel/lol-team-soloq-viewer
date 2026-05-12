@@ -10,9 +10,9 @@ from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
 
-from api.routes import router
-from db.database import init_db
-from services.update import (
+from src.api.routes import router
+from src.db.database import init_db
+from src.services.update import (
     refresh_competitions_data,
     refresh_deeplol_names,
     refresh_summoners_for_players,

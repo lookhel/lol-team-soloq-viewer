@@ -5,7 +5,7 @@ from src.clients.leaguepedia_scrape import scrape_deeplol_name
 from src.clients.deeplol import DeepLolAPI
 from src.db.repositories.player_repo import load_player
 from src.db.repositories.summoner_repo import load_player_summoners, load_summoner_stats
-from stats_service import merge_summoner_stats
+from src.services.stats_service import merge_summoner_stats
 from src.models import Player, Team
 
 
