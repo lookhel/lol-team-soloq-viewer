@@ -1,13 +1,3 @@
-[competitions]
-names = [
-    "Rift Legends 2026 Spring",
-    "LFL 2026 Spring Playoffs",
-    "LES 2026 Spring",
-    "LEC 2026 Spring",
-    "LPL 2026 Split 2",
-    "LCS 2026 Spring"
-]
-
 [stored_data_max_age]
 deeplol_names_days = 7
 summoners_for_players_hours = 24

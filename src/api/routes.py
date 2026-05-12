@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, HTTPException
 
 from src.db.database import get_connection
@@ -10,6 +12,13 @@ from src.db.repositories.champion_repo import load_champions
 from src.services.player_service import get_player_with_stats
 
 router= APIRouter()
+
+@router.get("/")
+def root():
+    return {
+        'status': 'ok',
+        'utc_timestamp': str(datetime.now(timezone.utc))
+    }
 
 @router.get('/competitions')
 def get_competitions():

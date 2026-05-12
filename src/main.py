@@ -1,9 +1,8 @@
 import logging
-import tomllib
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
-from tomllib import TOMLDecodeError
 
 import uvicorn
 from apscheduler.executors.pool import ThreadPoolExecutor
@@ -11,6 +10,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
 
 from src.api.routes import router
+from src.config import load_config, load_competition_names
 from src.db.database import init_db
 from src.services.update import (
     refresh_competitions_data,
@@ -20,7 +20,10 @@ from src.services.update import (
     refresh_champions,
 )
 
-CONFIG_FILE = Path(__file__).parent.parent / "config.toml"
+CONFIG_FILE = Path(__file__).parents[1] / "config.toml"
+COMPETITIONS_FILE = Path(__file__).parents[1] / "competitions.toml"
+
+ROOT_PATH = os.getenv("API_ROOT_PATH")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -30,15 +33,8 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-try:
-    with open(CONFIG_FILE, 'rb') as f:
-        config = tomllib.load(f)
-except FileNotFoundError:
-    logger.critical("Config file not found: %s", CONFIG_FILE)
-    raise
-except TOMLDecodeError:
-    logger.critical("Config file invalid: %s", CONFIG_FILE)
-    raise
+config = load_config(CONFIG_FILE)
+competitions = load_competition_names(COMPETITIONS_FILE)
 
 scheduler = BackgroundScheduler(
     job_defaults={
@@ -61,7 +57,7 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(refresh_champions, 'interval', hours=config['jobs_intervals']['champions_hours'],
                       next_run_time=datetime.now() + timedelta(seconds=10))
     scheduler.add_job(refresh_competitions_data, 'interval', hours=config['jobs_intervals']['competitions_hours'],
-                      kwargs={'competitions': config['competitions']['names']},
+                      kwargs={'competitions': competitions['names']},
                       next_run_time=datetime.now() + timedelta(seconds=20))
     scheduler.add_job(refresh_deeplol_names, 'interval', minutes=config['jobs_intervals']['deeplol_names_minutes'],
                       kwargs={'limit': config['requests_per_job_limit']['deeplol_names'],
@@ -82,7 +78,7 @@ async def lifespan(app: FastAPI):
     scheduler.shutdown()
 
 
-app = FastAPI(title="LoL Team SoloQ Analyzer API", lifespan=lifespan)
+app = FastAPI(title="LoL Team SoloQ Viewer API", lifespan=lifespan, root_path=ROOT_PATH or None)
 app.include_router(router)
 
 if __name__ == "__main__":

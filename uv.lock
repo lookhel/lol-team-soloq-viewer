@@ -309,7 +309,7 @@ wheels = [
 ]
 
 [[package]]
-name = "lol-team-soloq-analyze"
+name = "lol-team-soloq-viewer"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

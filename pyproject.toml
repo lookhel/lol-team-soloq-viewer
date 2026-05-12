@@ -1,5 +1,5 @@
 [project]
-name = "lol-team-soloq-analyze"
+name = "lol-team-soloq-viewer"
 version = "0.1.0"
 description = "Analyze League of Legends soloq games played by pro team members"
 readme = "README.md"
