@@ -33,11 +33,11 @@ FROM python:3.12-slim
 RUN groupadd --system --gid 999 nonroot \
  && useradd --system --gid 999 --uid 999 --create-home nonroot
 
+# Create directory for SQLite database
+RUN mkdir -p /app/data && chown -R 999:999 /app/data
+
 # Copy the application from the builder
 COPY --from=builder --chown=nonroot:nonroot /app /app
-
-# Creates directory for SQLite
-RUN mkdir -p /app/data && chown -R nonroot:nonroot /app/data
 
 # Place executables in the environment at the front of the path
 ENV PATH="/app/.venv/bin:$PATH"
