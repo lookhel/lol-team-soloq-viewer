@@ -78,7 +78,7 @@ async def lifespan(app: FastAPI):
     scheduler.shutdown()
 
 
-app = FastAPI(title="LoL Team SoloQ Viewer API", lifespan=lifespan, root_path=ROOT_PATH or None)
+app = FastAPI(title="LoL Team SoloQ Viewer API", description="API for serving League of Legends SoloQ statistics for team rosters", lifespan=lifespan, root_path=ROOT_PATH or None)
 app.include_router(router)
 
 if __name__ == "__main__":
