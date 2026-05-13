@@ -22,11 +22,8 @@ class TeamShort(BaseModel):
     short: str
 
 class CompetitionTeamsResponse(BaseModel):
-    name: str
+    competition_name: str
     teams: list[TeamShort]
-    overview_page: str
-    role: str
-    is_substitute: bool
 
     model_config = {
         "json_schema_extra": {
@@ -221,29 +218,34 @@ class PlayerResponse(BaseModel):
         }
     }
 
-class ChampionsResponse(BaseModel):
+class Champion(BaseModel):
     id: int
     name: str
     image: str
     version: str
 
+class ChampionsResponse(BaseModel):
+    champions: list[Champion]
+
     model_config = {
         "json_schema_extra": {
             "examples": [
-                [
-                    {
-                        "id": 266,
-                        "name": "Aatrox",
-                        "image": "Aatrox.png",
-                        "version": "16.10.1"
-                    },
-                    {
-                        "id": 103,
-                        "name": "Ahri",
-                        "image": "Ahri.png",
-                        "version": "16.10.1"
-                    }
-                ]
+                {
+                    "champions": [
+                        {
+                            "id": 266,
+                            "name": "Aatrox",
+                            "image": "Aatrox.png",
+                            "version": "16.10.1"
+                        },
+                        {
+                            "id": 103,
+                            "name": "Ahri",
+                            "image": "Ahri.png",
+                            "version": "16.10.1"
+                        },
+                    ]
+                }
             ]
         }
     }

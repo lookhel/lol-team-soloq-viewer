@@ -33,8 +33,8 @@ def root():
 @router.get('/competitions', response_model=CompetitionsResponse, tags=["Competitions"])
 def get_competitions():
     with get_connection() as conn:
-        names = load_competition_names(conn)
-    return {"competitions": names}
+        competition_names = load_competition_names(conn)
+    return {'competitions': competition_names}
 
 
 @router.get('/competitions/{name}', response_model=CompetitionTeamsResponse, tags=["Competitions"])
@@ -46,7 +46,7 @@ def get_competition_teams(name: str):
         raise HTTPException(status_code=404, detail=f"Competition {name} not found")
 
     return {
-        "competition": name,
+        "competition_name": name,
         "teams": [
             {
                 "overview_page": team.overview_page,
