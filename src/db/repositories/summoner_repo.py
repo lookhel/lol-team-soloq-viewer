@@ -9,8 +9,6 @@ def save_player_summoners(conn: Connection, player: Player) -> None:
     if not player.overview_page:
         raise ValueError(f"Player {player.name} has no overview_page")
 
-    now = int(time.time())
-
     player_row = conn.execute(
         """
         SELECT id
@@ -41,6 +39,15 @@ def save_player_summoners(conn: Connection, player: Player) -> None:
     puu_ids_to_remove = existing_puu_ids - current_puu_ids
 
     for puu_id in puu_ids_to_remove:
+        conn.execute(
+            """
+            DELETE
+            FROM summoner_stats
+            WHERE puu_id = ?
+            """,
+            (puu_id,)
+        )
+
         conn.execute(
             """
             DELETE
@@ -102,7 +109,7 @@ def load_player_summoners(conn: Connection, player: Player) -> None:
         (player.overview_page,)
     ).fetchall()
 
-    if rows is None:
+    if not rows:
         return
 
     summoners = []
