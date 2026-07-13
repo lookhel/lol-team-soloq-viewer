@@ -29,12 +29,10 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 FROM python:3.12-slim
 
-# Setup a non-root user
+# Setup a non-root user and create directory for SQLite database
 RUN groupadd --system --gid 999 nonroot \
- && useradd --system --gid 999 --uid 999 --create-home nonroot
-
-# Create directory for SQLite database
-RUN mkdir -p /app/data && chown -R 999:999 /app/data
+ && useradd --system --gid 999 --uid 999 --create-home nonroot \
+ && mkdir -p /app/data && chown -R 999:999 /app/data
 
 # Copy the application from the builder
 COPY --from=builder --chown=nonroot:nonroot /app /app
