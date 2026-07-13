@@ -1,8 +1,8 @@
 import logging
 from sqlite3 import Connection
 
-from src.clients.leaguepedia_scrape import scrape_deeplol_name
 from src.clients.deeplol import DeepLolAPI
+from src.clients.leaguepedia_api import LeaguepediaAPI
 from src.db.repositories.player_repo import load_player
 from src.db.repositories.summoner_repo import load_player_summoners, load_summoner_stats
 from src.services.stats_service import merge_summoner_stats
@@ -24,16 +24,27 @@ def find_deeplol_name(player: Player) -> bool:
     overview_page = player.overview_page
     name = player.name
     deeplol = DeepLolAPI()
+    leaguepedia = LeaguepediaAPI()
 
-    # 1. Scrape leaguepedia
-    scraping_result = scrape_deeplol_name(overview_page)
-    if scraping_result:
-        deeplol_name = scraping_result[0]
-        player_status = scraping_result[1]
-
-        validate_result = deeplol.validate_player_name(deeplol_name, player_status)
+    def validate(deeplol_name: str):
+        validate_result = deeplol.validate_player_name(deeplol_name)
         if validate_result:
             assign_deeplol(validate_result, player)
+            return True
+        return False
+
+    # 1st option: API query for Leaguepedia (deeplol name and lolpros name)
+
+    leagupedia_deeplol_name = leaguepedia.fetch_player_deeplol_name(overview_page)
+
+    if leagupedia_deeplol_name:
+        if validate(leagupedia_deeplol_name):
+            return True
+
+    leaguepedia_lolpros_name = leaguepedia.fetch_player_lolpros_name(overview_page)
+
+    if leaguepedia_lolpros_name:
+        if validate(leaguepedia_lolpros_name):
             return True
 
     names_to_check = {name, overview_page}
@@ -49,11 +60,9 @@ def find_deeplol_name(player: Player) -> bool:
         names_to_check.add(transformed_name)
 
 
-    # 2. Try to find by player name and player (transformed) overview page
+    # 2nd option: Try to find by player name and player (transformed) overview page
     for name in names_to_check:
-        validate_result = deeplol.validate_player_name(name)
-        if validate_result:
-            assign_deeplol(validate_result, player)
+        if validate(name):
             return True
 
     logger.warning("Deeplol profile not found for %s", overview_page)
@@ -91,3 +100,9 @@ if __name__ == "__main__":
 
     find_deeplol_name(naak_nako)
     print(naak_nako.deeplol_name, naak_nako.deeplol_status)
+
+    find_deeplol_name(lequ)
+    print(lequ.deeplol_name, lequ.deeplol_status)
+
+    find_deeplol_name(minemaciek)
+    print(minemaciek.deeplol_name, minemaciek.deeplol_status)

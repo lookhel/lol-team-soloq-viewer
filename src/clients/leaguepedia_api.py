@@ -184,8 +184,8 @@ class LeaguepediaAPI():
             where=f"P.Player='{player}'",
         )
 
-        if response:
-            lolpros_url = response[0]['Lolpros']
+        if response and response[0].get('Lolpros'):
+            lolpros_url = response[0].get('Lolpros')
             lolpros_name = lolpros_url.rstrip('/').split('/')[-1]
             return lolpros_name
 
@@ -193,30 +193,48 @@ class LeaguepediaAPI():
             logger.info("No lolpros data found for %s", player)
             return None
 
-    def fetch_latest_roster(self, team_name: str) -> list[str]:
-
+    def fetch_player_deeplol_name(self, player: str) -> str | None:
         response = self._site.cargo_client.query(
-            tables="TournamentRosters=TR, CurrentLeagues=CL",
-            fields="TR.RosterLinks",
-            where=f"TR.Team='{LeaguepediaAPI._escape_sql(team_name)}'",
-            join_on="CL.OverviewPage=TR.OverviewPage",
+            tables="Players=P, PlayerRedirects=PR",
+            fields="P.DEEPLOL",
+            join_on="PR.OverviewPage=P.OverviewPage",
+            group_by="P.OverviewPage",
+            where=f"P.Player='{player}'",
         )
 
-        if not response:
-            logger.warning("No roster data found for %s", team_name)
-            return []
+        if response and response[0].get('DEEPLOL'):
+            deeplol_name = response[0]['DEEPLOL']
+            deeplol_name = deeplol_name.rstrip('/').split('/')[-1]
+            return deeplol_name
 
-        members_list = [r['RosterLinks'] for r in response]
+        else:
+            logger.info("No deeplol data found for %s", player)
+            return None
 
-        return members_list[0].split(';;')
+    def fetch_latest_roster(self, team_name: str) -> list[str]:
+
+            response = self._site.cargo_client.query(
+                tables="TournamentRosters=TR, CurrentLeagues=CL",
+                fields="TR.RosterLinks",
+                where=f"TR.Team='{LeaguepediaAPI._escape_sql(team_name)}'",
+                join_on="CL.OverviewPage=TR.OverviewPage",
+            )
+
+            if not response or not response[0].get('RosterLinks'):
+                logger.warning("No roster data found for %s", team_name)
+                return []
+
+            members_list = [r['RosterLinks'] for r in response]
+
+            return members_list[0].split(';;')
 
 
 if __name__ == "__main__":
     leaguepedia = LeaguepediaAPI()
 
-    rift_names = leaguepedia.fetch_competition_team_names('Rift Legends 2026 Spring')
+    rift_names = leaguepedia.fetch_competition_team_names('Rift Legends 2026 Summer')
     print(rift_names)
     print(leaguepedia.fetch_teams_info(rift_names))
-
-    print(leaguepedia.fetch_latest_roster('Bomba Team'))
-    print(leaguepedia.fetch_latest_roster('StormMedia Fajnie Mieć Skład'))
+    print(leaguepedia.fetch_player_deeplol_name('lequ'))
+    print(leaguepedia.fetch_latest_roster('G2 Esports'))
+    print(leaguepedia.fetch_player_lolpros_name('mikusik'))
