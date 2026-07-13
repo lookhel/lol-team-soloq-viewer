@@ -1,6 +1,7 @@
 services:
   app:
     build: .
+    restart: unless-stopped
     command:
       - uvicorn
       - src.main:app
